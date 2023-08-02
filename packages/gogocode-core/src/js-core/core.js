@@ -11,7 +11,6 @@ const core = {
         //strictSequence作用：
         // 有的时候数组不要求顺序，如{a:$_$}匹配{b:1, a:2}
         // 有的时候需要，如function($_$, $_$)匹配function(a, b) {}
-        
         if (!Array.isArray(selector)) {
             selector = [selector];
         }

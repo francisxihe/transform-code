@@ -1,12 +1,15 @@
 const parse = require('./parse');
 const jsCore = require('../js-core/core');
-const htmlCore = require('../html-core/core')
+const htmlCore = require('../html-core/core');
 const NodePath = require('../NodePath');
 const core = {
     getAstsBySelector(ast, selector, { parseOptions } = {}) {
         parseOptions = Object.assign({}, parseOptions);
         let newAst = null;
-        if (selector == '<template></template>') {
+
+        const scriptReg = /<script\s*[^>]*>[\s\S]*<\/script>/i;
+        
+        if (selector === '<template></template>') {
             parseOptions.language = 'html';
             parseOptions.rootLanguage = 'vue';
             if (ast.templateAst) {
@@ -15,26 +18,26 @@ const core = {
                 ast.templateAst = core.getTemplate(ast);
                 newAst = ast.templateAst;
             }
-        } else if (selector == '<script></script>') {
-            parseOptions.language = 'js'
+        } else if (scriptReg.test(selector)) {
+            parseOptions.language = 'js';
             parseOptions.rootLanguage = 'vue';
-            if (ast.scriptAst) {
-                newAst = ast.scriptAst;
+            if (selector.includes('setup')) {
+                if (ast.scriptSetupAst) {
+                    newAst = ast.scriptSetupAst;
+                } else {
+                    ast.scriptSetupAst = core.getScript(ast, { isSetup: true, parseOptions });
+                    newAst = ast.scriptSetupAst;
+                }
             } else {
-                ast.scriptAst = core.getScript(ast, { parseOptions });
-                newAst = ast.scriptAst;
-            }
-        } else if (selector == '<script setup></script>') {
-            parseOptions.language = 'js'
-            parseOptions.rootLanguage = 'vue';
-            if (ast.scriptSetupAst) {
-                newAst = ast.scriptSetupAst;
-            } else {
-                ast.scriptSetupAst = core.getScript(ast, { isSetup: true, parseOptions });
-                newAst = ast.scriptSetupAst;
+                if (ast.scriptAst) {
+                    newAst = ast.scriptAst;
+                } else {
+                    ast.scriptAst = core.getScript(ast, { parseOptions });
+                    newAst = ast.scriptAst;
+                }
             }
         }
-        return { nodePathList: newAst ? [newAst] : [], matchWildCardList: [], extra: { parseOptions } }
+        return { nodePathList: newAst ? [newAst] : [], matchWildCardList: [], extra: { parseOptions } };
     },
     getTemplate(ast) {
         // 仅针对vue，取template，后续通过htmlcore处理
@@ -44,7 +47,7 @@ const core = {
                 {},
                 {
                     isProgram: true,
-                    parseOptions: { language: 'html' }
+                    parseOptions: { language: 'html' },
                 }
             );
             return new NodePath(template);
@@ -52,21 +55,22 @@ const core = {
             return undefined;
         }
     },
-    getScript(ast, { isSetup = false, parseOptions } = {} ) {
+    getScript(ast, { isSetup = false, parseOptions } = {}) {
         // 仅针对vue，取script，后续通过jscore处理
         let content;
         if (isSetup && ast.scriptSetup) {
             content = ast.scriptSetup.content;
         } else if (!isSetup && ast.script) {
-            content = ast.script.content
+            content = ast.script.content;
             // const content = ast.script.content.replace(/\n/g, '')
         }
         if (content) {
             const script = jsCore.buildAstByAstStr(
-                content, {},
+                content,
+                {},
                 {
                     isProgram: true,
-                    parseOptions
+                    parseOptions,
                 }
             );
             return new NodePath(script);
@@ -83,16 +87,16 @@ const core = {
                     return program;
                 } else {
                     if (program.template && program.template.ast) {
-                        return program.template
-                    } else return null
+                        return program.template;
+                    } else return null;
                 }
             } else {
                 return null;
             }
-        } catch(e) {
-            console.log('buildAstByAstStr failed:' + e)
+        } catch (e) {
+            console.log('buildAstByAstStr failed:' + e);
         }
-    }
-}
+    },
+};
 
 module.exports = core;
